@@ -5,7 +5,7 @@ import sys
 def main():
     # 获取当前脚本所在目录
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    venv_dir = os.path.abspath(os.path.join(base_dir, "bin", "activate"))
+    venv_dir = os.path.abspath(os.path.join(base_dir, "venv", "bin", "activate"))
     spider_dir = base_dir
 
     # 检查虚拟环境激活脚本是否存在

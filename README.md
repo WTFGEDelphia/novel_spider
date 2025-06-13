@@ -45,6 +45,7 @@ novel_spider/
    ```bash
    git clone git@github.com:WTFGEDelphia/novel_spider.git
    cd novel_spider
+   git checkout main
    ```
 
 2. **安装 Python 环境**
