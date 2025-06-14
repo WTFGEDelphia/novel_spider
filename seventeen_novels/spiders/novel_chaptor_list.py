@@ -14,12 +14,12 @@ class NovelChaptorListSpider(scrapy.Spider):
     name = "novel_chaptor_list"
     allowed_domains = ["www.17k.com"]
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.abspath(os.path.join(base_dir, "..", "..", "output"))
-    novel_top100_path = os.path.abspath(os.path.join(base_dir, "..", "..", "output", "novel_top100_html"))
+    output_dir = os.path.abspath(os.path.join(base_dir, "..", "..", "output"))
+    novel_top100_path = os.path.abspath(os.path.join(output_dir, "novel_top100_html"))
     os.makedirs(novel_top100_path, exist_ok=True)
 
     async def start(self):
-        csv_path = os.path.abspath(os.path.join(self.output_path, "free_novel_top100.csv"))
+        csv_path = os.path.abspath(os.path.join(self.output_dir, "free_novel_top100.csv"))
         self.logger.info(f"CSV文件路径: {csv_path}")
         if not os.path.exists(csv_path):
             self.logger.error(f"CSV文件未找到: {csv_path}")
@@ -101,8 +101,9 @@ class NovelChaptorListSpider(scrapy.Spider):
             if not html_content:
                 self.logger.error(f"Selenium 仍然未能绕过反爬虫，未保存: {novel_name}")
                 return
-        with open(html_file, "w", encoding="utf-8") as f:
-            f.write(html_content)
+            else:
+                with open(html_file, "w", encoding="utf-8") as f:
+                    f.write(html_content)
 
         selector = Selector(text=html_content)
         # 解析所有卷

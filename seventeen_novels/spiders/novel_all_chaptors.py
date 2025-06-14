@@ -12,35 +12,41 @@ import time
 class NovelAllChaptorsSpider(scrapy.Spider):
     name = "novel_all_chaptors"
     allowed_domains = ["17k.com"]
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.abspath(os.path.join(base_dir, "..", "..", "output"))
+    novel_chaptor_list_path = os.path.abspath(os.path.join(output_dir, "novel_chaptor_list"))
+    novel_all_chaptors_dir = os.path.abspath(os.path.join(output_dir, "novel_all_chaptors"))
+    os.makedirs(novel_all_chaptors_dir, exist_ok=True)
 
     async def start(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        output_path = os.path.abspath(os.path.join(base_dir, "..", "..", "output"))
-        csv_path = os.path.abspath(os.path.join(output_path, "novel_chaptor_list.csv"))
-        self.logger.info(f"CSV文件路径: {csv_path}")
-        if not os.path.exists(csv_path):
-            self.logger.error(f"CSV文件未找到: {csv_path}")
+        if not os.path.exists(self.novel_chaptor_list_path):
+            self.logger.error(f"csv目录未找到: {self.novel_chaptor_list_path}")
             return
-
-        with open(csv_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                chapter_link = row.get("ChapterLink", "").strip()
-                if not chapter_link:
-                    continue
-                novel_name = row.get("NovelName", "").strip()
-                meta = {
-                    "NovelName": novel_name,
-                    "VolumeTitle": row.get("VolumeTitle", ""),
-                    "ChapterName": row.get("ChapterName", ""),
-                    "ChapterLink": chapter_link,
-                    "ChapterInfo": row.get("ChapterInfo", ""),
-                }
-                yield scrapy.Request(
-                    url=chapter_link,
-                    callback=self.parse_chapter,
-                    meta=meta
-                )
+        self.logger.info(f"章节csv目录: {self.novel_chaptor_list_path}")
+        for filename in os.listdir(self.novel_chaptor_list_path):
+            if not filename.endswith(".csv"):
+                continue
+            csv_path = os.path.join(self.novel_chaptor_list_path, filename)
+            self.logger.info(f"处理csv文件: {csv_path}")
+            with open(csv_path, newline='', encoding='utf-8') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    chapter_link = row.get("ChapterLink", "").strip()
+                    if not chapter_link:
+                        continue
+                    novel_name = row.get("NovelName", "").strip()
+                    meta = {
+                        "NovelName": novel_name,
+                        "VolumeTitle": row.get("VolumeTitle", ""),
+                        "ChapterName": row.get("ChapterName", ""),
+                        "ChapterLink": chapter_link,
+                        "ChapterInfo": row.get("ChapterInfo", ""),
+                    }
+                    yield scrapy.Request(
+                        url=chapter_link,
+                        callback=self.parse_chapter,
+                        meta=meta
+                    )
 
     def get_html_with_selenium(self, url):
         chrome_options = Options()
@@ -82,11 +88,10 @@ class NovelAllChaptorsSpider(scrapy.Spider):
         chapter_link = response.meta.get("ChapterLink", "").strip()
         self.logger.info(f"抓取小说章节: {chapter_name}，URL: {chapter_link}")
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        novel_dir = os.path.join(base_dir, novel_name)
-        html_file = os.path.join(novel_dir, f"{novel_name}_{chapter_name}.html")
+        novel_dir = os.path.abspath(os.path.join(self.novel_all_chaptors_dir, novel_name))
         os.makedirs(novel_dir, exist_ok=True)
-        if os.path.exists(novel_dir):
+        html_file = os.path.join(novel_dir, f"{novel_name}_{chapter_name}.html")
+        if os.path.exists(html_file):
             self.logger.info(f"已存在文件: {html_file}")
             return
 
@@ -99,8 +104,6 @@ class NovelAllChaptorsSpider(scrapy.Spider):
         if is_anti_spider:
             self.logger.warning(f"检测到反爬虫页面，尝试用Selenium重新获取: {novel_name}_{chapter_name}")
             html_content = self.get_html_with_selenium(chapter_link)
-            # self.logger.warning(f"Selenium 抓取 html_content: {html_content}")
-            # if not html_content or any(k in html_content for k in anti_spider_keywords):
             if not html_content:
                 self.logger.error(f"Selenium 仍然未能绕过反爬虫，未保存: {novel_name}_{chapter_name}")
             else:

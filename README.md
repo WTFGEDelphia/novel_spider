@@ -32,12 +32,30 @@ novel_spider/
 │       ├── free_novel_top100.py
 │       ├── novel_chaptor_list.py
 │       └── novel_all_chaptors.py
+├── output/                    # 所有数据输出目录（已自动 .gitignore）
+│   ├── free_novel_top100.csv              # 免费榜单数据
+│   ├── novel_chaptor_list/                # 每本小说的章节列表csv
+│   │   ├── 小说A.csv
+│   │   ├── 小说B.csv
+│   │   └── ...
+│   ├── novel_all_chaptors/                # 每本小说的章节正文csv
+│   │   ├── 小说A.csv
+│   │   ├── 小说B.csv
+│   │   └── ...
 ├── run_free_novel_top100.py   # 运行免费榜单爬虫的入口脚本
 ├── run_novel_chaptor_list.py  # 运行章节列表爬虫的入口脚本
 ├── run_novel_all_chaptors.py  # 运行章节内容爬虫的入口脚本
 ├── LICENSE
 └── README.md
 ```
+
+## 输入文件与输出目录说明
+
+- `output/free_novel_top100.csv`：免费小说榜单，作为章节列表爬虫的输入。
+- `output/novel_chaptor_list/`：每本小说所有章节列表 csv，作为章节内容爬虫的输入。
+- `output/novel_all_chaptors/`：每本小说所有章节正文 csv，最终输出结果。
+
+所有中间和最终数据均保存在 `output/` 目录下。该目录已加入 `.gitignore`，不会被提交到仓库。
 
 ## 安装与环境准备
 
