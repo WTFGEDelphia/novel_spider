@@ -1,0 +1,16 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+
+# 忽略 Python 虚拟环境
+venv/
+
+# 忽略输出目录
+output/
+
+# 保留 output 目录下的 README.md
+!output/README.md
+
+# 忽略所有 .pyc 文件
+*.pyc
+
+# 忽略 __pycache__ 目录
+__pycache__/
