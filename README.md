@@ -136,14 +136,14 @@ python run_free_novel_top100.py
 ```bash
 python run_novel_chaptor_list.py
 ```
-- 依赖上一步生成的 `free_novel_top100.csv`，输出 `novel_chaptor_list.csv`。
+- 依赖上一步生成的 `free_novel_top100.csv`，输出小说章节列表的csv文件到目录 `novel_chaptor_list`。
 
 ### 3. 抓取所有章节内容
 
 ```bash
 python run_novel_all_chaptors.py
 ```
-- 依赖上一步生成的 `novel_chaptor_list.csv`，输出 `novel_all_chaptors.csv` 及各章节 HTML 文件。
+- 依赖上一步生成的 `novel_chaptor_list.csv`，输出小说章节和内容的csv文件到目录 `novel_all_chaptors`。
 
 ### 4. 参数说明
 
@@ -153,9 +153,9 @@ python run_novel_all_chaptors.py
 ### 5. 结果文件
 
 - `free_novel_top100.csv`：包含小说榜单信息。
-- `novel_chaptor_list.csv`：包含每本小说的所有章节信息。
-- `novel_all_chaptors.csv`：包含所有章节的正文内容。
-- 各章节 HTML 文件：以小说名为目录，章节名为文件名保存。
+- `novel_chaptor_list/<小说名.csv>`：包含每本小说的所有章节信息。
+- `novel_all_chaptors/<小说名.csv>`：包含每本小说章节和内容。
+- `novel_all_chaptors/<小说名>/<章节名.csv>` 各章节 HTML 文件：以小说名为目录，章节名为文件名保存。
 
 ## 注意事项
 
