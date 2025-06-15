@@ -24,7 +24,7 @@ ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 # CONCURRENT_REQUESTS = 32
-CONCURRENT_REQUESTS = 1
+CONCURRENT_REQUESTS = 16
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
@@ -76,9 +76,10 @@ DEFAULT_REQUEST_HEADERS = {
 # Order values are arbitrary, but it is customary to define them in the 0-1000 range.
 # Lower orders process before higher orders.
 ITEM_PIPELINES = {
-    "seventeen_novels.pipelines.FreeNovelTop100Pipeline": 100,
-    "seventeen_novels.pipelines.NovelChaptorListPipeline": 200,
-    "seventeen_novels.pipelines.NovelAllChaptorsPipeline": 300,
+    # "seventeen_novels.pipelines.FreeNovelTop100Pipeline": 100,
+    # "seventeen_novels.pipelines.NovelChaptorListPipeline": 200,
+    # "seventeen_novels.pipelines.NovelAllChaptorsPipeline": 300,
+    "seventeen_novels.pipelines.AutoNovelsTop100Pipeline": 100,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
