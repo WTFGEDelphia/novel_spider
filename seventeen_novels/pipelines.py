@@ -4,7 +4,7 @@
 # See: https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 import os
 import sqlite3
-from .items import SeventeenNovelsItem, NovelChaptorItem
+from .items import SeventeenNovelsItem, NovelChapterItem
 # useful for handling different item types with a single interface
 from scrapy.exporters import CsvItemExporter
 
@@ -37,14 +37,14 @@ class FreeNovelTop100Pipeline:
             return item
 
 
-class NovelChaptorListPipeline:
+class NovelChapterListPipeline:
     def __init__(self):
             self.exporters = {}
             self.files = {}
-            self.dir = "output/novel_chaptor_list"
+            self.dir = "output/novel_chapter_list"
 
     def open_spider(self, spider):
-        if spider.name == "novel_chaptor_list":
+        if spider.name == "novel_chapter_list":
             os.makedirs(self.dir, exist_ok=True)
 
     def close_spider(self, spider):
@@ -56,9 +56,9 @@ class NovelChaptorListPipeline:
         self.files.clear()
 
     def process_item(self, item, spider):
-        if spider.name != "novel_chaptor_list":
+        if spider.name != "novel_chapter_list":
             return item
-        if isinstance(item, NovelChaptorItem):
+        if isinstance(item, NovelChapterItem):
             novel_name = item.get("NovelName", "unknown")
             safe_name = "".join([c if c.isalnum() else "_" for c in novel_name])
             file_path = f"{self.dir}/{safe_name}.csv"
@@ -72,14 +72,14 @@ class NovelChaptorListPipeline:
         return item
 
 
-class NovelAllChaptorsPipeline:
+class NovelAllChaptersPipeline:
     def __init__(self):
         self.exporters = {}
         self.files = {}
-        self.output_dir = "output/novel_all_chaptors"
+        self.output_dir = "output/novel_all_chapters"
 
     def open_spider(self, spider):
-        if spider.name == "novel_all_chaptors":
+        if spider.name == "novel_all_chapters":
             os.makedirs(self.output_dir, exist_ok=True)
 
     def close_spider(self, spider):
@@ -91,9 +91,9 @@ class NovelAllChaptorsPipeline:
         self.files.clear()
 
     def process_item(self, item, spider):
-        if spider.name != "novel_all_chaptors":
+        if spider.name != "novel_all_chapters":
             return item
-        if isinstance(item, NovelChaptorItem):
+        if isinstance(item, NovelChapterItem):
             novel_name = item.get("NovelName", "unknown")
             safe_name = "".join([c if c.isalnum() else "_" for c in novel_name])
             file_path = f"{self.output_dir}/{safe_name}.csv"
@@ -142,7 +142,7 @@ class AutoNovelsTop100Pipeline:
         ''')
         # 章节列表表
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS novel_chaptor (
+            CREATE TABLE IF NOT EXISTS novel_chapter (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 novel_name TEXT,
                 volume_title TEXT,
@@ -153,7 +153,7 @@ class AutoNovelsTop100Pipeline:
             )
         ''')
         self.cursor.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_chaptor_name ON novel_chaptor(novel_name, chapter_name)
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_name ON novel_chapter(novel_name, chapter_name)
         ''')
 
     def close_spider(self, spider):
@@ -195,13 +195,13 @@ class AutoNovelsTop100Pipeline:
             return item
 
         # 章节内容
-        if isinstance(item, NovelChaptorItem) and item.get("ChapterContent"):
+        if isinstance(item, NovelChapterItem) and item.get("ChapterContent"):
             self.cursor.execute('''
-                INSERT OR REPLACE INTO novel_chaptor (
+                INSERT OR REPLACE INTO novel_chapter (
                     id, novel_name, volume_title, chapter_name,
                     chapter_link, chapter_info, chapter_content
                 ) VALUES (
-                    (SELECT id FROM novel_chaptor WHERE novel_name = ? AND chapter_name = ?),
+                    (SELECT id FROM novel_chapter WHERE novel_name = ? AND chapter_name = ?),
                     ?, ?, ?, ?, ?, ?
                 )
             ''', (
@@ -218,13 +218,13 @@ class AutoNovelsTop100Pipeline:
             return item
 
         # 章节列表（无正文）
-        if isinstance(item, NovelChaptorItem):
+        if isinstance(item, NovelChapterItem):
             self.cursor.execute('''
-                INSERT OR REPLACE INTO novel_chaptor (
+                INSERT OR REPLACE INTO novel_chapter (
                     id, novel_name, volume_title, chapter_name,
                     chapter_link, chapter_info
                 ) VALUES (
-                    (SELECT id FROM novel_chaptor WHERE novel_name = ? AND chapter_name = ?),
+                    (SELECT id FROM novel_chapter WHERE novel_name = ? AND chapter_name = ?),
                     ?, ?, ?, ?, ?
                 )
             ''', (

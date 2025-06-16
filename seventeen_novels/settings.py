@@ -77,8 +77,8 @@ DEFAULT_REQUEST_HEADERS = {
 # Lower orders process before higher orders.
 ITEM_PIPELINES = {
     "seventeen_novels.pipelines.FreeNovelTop100Pipeline": 100,
-    "seventeen_novels.pipelines.NovelChaptorListPipeline": 200,
-    "seventeen_novels.pipelines.NovelAllChaptorsPipeline": 300,
+    "seventeen_novels.pipelines.NovelChapterListPipeline": 200,
+    "seventeen_novels.pipelines.NovelAllChaptersPipeline": 300,
     "seventeen_novels.pipelines.AutoNovelsTop100Pipeline": 400,
 }
 

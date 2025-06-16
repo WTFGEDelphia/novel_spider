@@ -24,7 +24,7 @@ class SeventeenNovelsItem(scrapy.Item):
     RankingValues = scrapy.Field()  # 榜单数值
 
 
-class NovelChaptorItem(scrapy.Item):
+class NovelChapterItem(scrapy.Item):
     NovelName = scrapy.Field()
     VolumeTitle = scrapy.Field()
     ChapterName = scrapy.Field()

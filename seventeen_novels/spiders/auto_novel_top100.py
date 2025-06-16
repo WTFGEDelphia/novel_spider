@@ -4,7 +4,7 @@ import sqlite3
 import time
 
 from scrapy.selector import Selector
-from ..items import SeventeenNovelsItem, NovelChaptorItem
+from ..items import SeventeenNovelsItem, NovelChapterItem
 
 # Selenium相关
 from selenium import webdriver
@@ -64,7 +64,7 @@ class AutoNovelTop100Spider(scrapy.Spider):
             yield scrapy.Request(url, callback=self.parse_top100)
         else:
             # 已有榜单，直接进入下一步
-            yield from self.request_chaptor_list()
+            yield from self.request_chapter_list()
 
     def parse_top100(self, response):
         anti_spider_keywords = [
@@ -110,9 +110,9 @@ class AutoNovelTop100Spider(scrapy.Spider):
             yield item
 
         # 进入下一步
-        yield from self.request_chaptor_list()
+        yield from self.request_chapter_list()
 
-    def request_chaptor_list(self):
+    def request_chapter_list(self):
         # Step 2: 直接从pipeline写入的sqlite读取榜单
         if not os.path.exists(self.db_path):
             self.logger.error(f"sqlite文件未找到: {self.db_path}")
@@ -135,11 +135,11 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 continue
             yield scrapy.Request(
                 novel_link,
-                callback=self.parse_novel_chaptor_list,
+                callback=self.parse_novel_chapter_list,
                 meta={'novel_name': novel_name}
             )
 
-    def parse_novel_chaptor_list(self, response):
+    def parse_novel_chapter_list(self, response):
         novel_name = response.meta.get('novel_name', '')
         self.logger.info(f"抓取小说: {novel_name}, URL: {response.url}")
 
@@ -156,7 +156,7 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 return
 
         selector = Selector(text=html_content)
-        chaptor_items = []
+        chapter_items = []
         for volume in selector.xpath('//dl[@class="Volume"]'):
             volume_title = volume.xpath('./dt/span[@class="tit"]/text()').get(default='').strip()
             for chapter in volume.xpath('./dd/a'):
@@ -165,20 +165,20 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 if chapter_link.startswith('/'):
                     chapter_link = response.urljoin(chapter_link)
                 chapter_info = chapter.xpath('./@title').get(default='').strip()
-                item = NovelChaptorItem()
+                item = NovelChapterItem()
                 item["NovelName"] = novel_name
                 item["VolumeTitle"] = volume_title
                 item["ChapterName"] = chapter_name
                 item["ChapterLink"] = chapter_link
                 item["ChapterInfo"] = chapter_info
-                chaptor_items.append(item)
+                chapter_items.append(item)
 
         # 只 yield item，写入交由 pipeline
-        for item in chaptor_items:
+        for item in chapter_items:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT count(*) FROM novel_chaptor
+            SELECT count(*) FROM novel_chapter
             WHERE novel_name = ? AND chapter_name = ? AND chapter_content IS NOT NULL
             ''',
             (item["NovelName"], item["ChapterName"]))
@@ -191,11 +191,11 @@ class AutoNovelTop100Spider(scrapy.Spider):
             # 进入下一步：抓取章节内容
             yield scrapy.Request(
                 url=item["ChapterLink"],
-                callback=self.parse_chaptor_content,
+                callback=self.parse_chapter_content,
                 meta=item
             )
 
-    def parse_chaptor_content(self, response):
+    def parse_chapter_content(self, response):
         novel_name = response.meta.get('NovelName', '').strip()
         chapter_name = response.meta.get("ChapterName", "").strip()
         chapter_link = response.meta.get("ChapterLink", "").strip()
@@ -220,7 +220,7 @@ class AutoNovelTop100Spider(scrapy.Spider):
         content = [line.strip() for line in content if line.strip()]
 
         # 只 yield item，写入交由 pipeline
-        item = NovelChaptorItem()
+        item = NovelChapterItem()
         item["NovelName"] = novel_name
         item["VolumeTitle"] = response.meta.get("VolumeTitle", "")
         item["ChapterName"] = chapter_name

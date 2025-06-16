@@ -11,10 +11,10 @@ novel_spider/README.md
    - 通过 `free_novel_top100` 爬虫，自动抓取 17k 小说网免费榜单前 100 名小说的基本信息，包括排名、类别、名称、作者、最新章节、状态等，并保存为 `free_novel_top100.csv`。
 
 2. **抓取小说章节列表**
-   - 通过 `novel_chaptor_list` 爬虫，读取榜单 CSV，批量抓取每本小说的所有卷及章节信息，包括卷名、章节名、章节链接等，保存为 `novel_chaptor_list.csv`。
+   - 通过 `novel_chapter_list` 爬虫，读取榜单 CSV，批量抓取每本小说的所有卷及章节信息，包括卷名、章节名、章节链接等，保存为 `novel_chapter_list.csv`。
 
 3. **抓取小说所有章节内容**
-   - 通过 `novel_all_chaptors` 爬虫，读取章节列表 CSV，批量抓取每个章节的正文内容，自动处理反爬虫机制（如遇到反爬页面自动切换 Selenium），并保存为 `novel_all_chaptors.csv` 及本地 HTML 文件。
+   - 通过 `novel_all_chapters` 爬虫，读取章节列表 CSV，批量抓取每个章节的正文内容，自动处理反爬虫机制（如遇到反爬页面自动切换 Selenium），并保存为 `novel_all_chapters.csv` 及本地 HTML 文件。
 
 4. **自动化采集小说榜单与章节内容（支持SQLite存储）**
    - 通过 `auto_novel_top100` 爬虫，自动抓取 17k 小说网 VIP 榜单前 100 名小说的基本信息、章节列表及所有章节内容，**全流程自动化**，并将所有数据存入 `output/novel_data.db` 的 SQLite 数据库。
@@ -35,22 +35,22 @@ novel_spider/
 │   ├── settings.py            # Scrapy 配置
 │   └── spiders/               # 各爬虫脚本
 │       ├── free_novel_top100.py
-│       ├── novel_chaptor_list.py
-│       └── novel_all_chaptors.py
+│       ├── novel_chapter_list.py
+│       └── novel_all_chapters.py
 ├── output/                    # 所有数据输出目录（已自动 .gitignore）
 │   ├── free_novel_top100.csv              # 免费榜单数据
-│   ├── novel_chaptor_list/                # 每本小说的章节列表csv
+│   ├── novel_chapter_list/                # 每本小说的章节列表csv
 │   │   ├── 小说A.csv
 │   │   ├── 小说B.csv
 │   │   └── ...
-│   ├── novel_all_chaptors/                # 每本小说的章节正文csv
+│   ├── novel_all_chapters/                # 每本小说的章节正文csv
 │   │   ├── 小说A.csv
 │   │   ├── 小说B.csv
 │   │   └── ...
 │   ├── novel_data.db                      # 自动化流程采集的SQLite数据库
 ├── run_free_novel_top100.py   # 运行免费榜单爬虫的入口脚本
-├── run_novel_chaptor_list.py  # 运行章节列表爬虫的入口脚本
-├── run_novel_all_chaptors.py  # 运行章节内容爬虫的入口脚本
+├── run_novel_chapter_list.py  # 运行章节列表爬虫的入口脚本
+├── run_novel_all_chapters.py  # 运行章节内容爬虫的入口脚本
 ├── LICENSE
 └── README.md
 ```
@@ -58,8 +58,8 @@ novel_spider/
 ## 输入文件与输出目录说明
 
 - `output/free_novel_top100.csv`：免费小说榜单，作为章节列表爬虫的输入。
-- `output/novel_chaptor_list/`：每本小说所有章节列表 csv，作为章节内容爬虫的输入。
-- `output/novel_all_chaptors/`：每本小说所有章节正文 csv，最终输出结果。
+- `output/novel_chapter_list/`：每本小说所有章节列表 csv，作为章节内容爬虫的输入。
+- `output/novel_all_chapters/`：每本小说所有章节正文 csv，最终输出结果。
 - `output/novel_data.db`：包含自动化采集的小说榜单、章节列表、章节内容等所有结构化数据，便于后续分析或二次开发。
 
 所有中间和最终数据均保存在 `output/` 目录下。该目录已加入 `.gitignore`，不会被提交到仓库。
@@ -141,16 +141,16 @@ python run_free_novel_top100.py
 ### 2. 抓取小说章节列表
 
 ```bash
-python run_novel_chaptor_list.py
+python run_novel_chapter_list.py
 ```
-- 依赖上一步生成的 `free_novel_top100.csv`，输出小说章节列表的csv文件到目录 `novel_chaptor_list`。
+- 依赖上一步生成的 `free_novel_top100.csv`，输出小说章节列表的csv文件到目录 `novel_chapter_list`。
 
 ### 3. 抓取所有章节内容
 
 ```bash
-python run_novel_all_chaptors.py
+python run_novel_all_chapters.py
 ```
-- 依赖上一步生成的 `novel_chaptor_list.csv`，输出小说章节和内容的csv文件到目录 `novel_all_chaptors`。
+- 依赖上一步生成的 `novel_chapter_list.csv`，输出小说章节和内容的csv文件到目录 `novel_all_chapters`。
 
 ### 4. 一键自动采集并存入数据库
 
@@ -168,9 +168,9 @@ python run_auto_novel_top100.py
 ### 6. 结果文件
 
 - `free_novel_top100.csv`：包含小说榜单信息。
-- `novel_chaptor_list/<小说名.csv>`：包含每本小说的所有章节信息。
-- `novel_all_chaptors/<小说名.csv>`：包含每本小说章节和内容。
-- `novel_all_chaptors/<小说名>/<章节名.csv>` 各章节 HTML 文件：以小说名为目录，章节名为文件名保存。
+- `novel_chapter_list/<小说名.csv>`：包含每本小说的所有章节信息。
+- `novel_all_chapters/<小说名.csv>`：包含每本小说章节和内容。
+- `novel_all_chapters/<小说名>/<章节名.csv>` 各章节 HTML 文件：以小说名为目录，章节名为文件名保存。
 - `novel_data.db`：自动化全流程采集的所有结构化数据（榜单、章节、正文等）。
 
 ## 注意事项
