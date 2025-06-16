@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import time
+from scrapy import signals
 
 class FreeNovelTop100Spider(scrapy.Spider):
     name = "free_novel_top100"
@@ -20,6 +21,38 @@ class FreeNovelTop100Spider(scrapy.Spider):
     def __init__(self, local=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.local = local
+        self.driver = None  # Selenium driver实例
+
+    @classmethod
+    def from_crawler(cls, crawler, *args, **kwargs):
+        spider = super().from_crawler(crawler, *args, **kwargs)
+        crawler.signals.connect(spider.open_spider, signal=signals.spider_opened)
+        crawler.signals.connect(spider.close_spider, signal=signals.spider_closed)
+        return spider
+
+    def open_spider(self, spider):
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--enable-unsafe-swiftshader")
+        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+        chrome_options.add_argument(f"user-agent={user_agent}")
+
+        # 你可以根据实际情况修改 chromedriver 路径
+        chromedriver_path = r"C:\Users\wtf50\.wdm\drivers\chromedriver\win64\137.0.7151.70\chromedriver-win32\chromedriver.exe"
+        if not os.path.exists(chromedriver_path):
+            self.logger.error(f"ChromeDriver not found at {chromedriver_path}")
+            self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        else:
+            self.driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
+        self.driver.implicitly_wait(15)
+        self.driver.set_page_load_timeout(25)
+
+    def close_spider(self, spider):
+        if self.driver:
+            self.driver.quit()
+            self.driver = None
 
     def start_requests(self):
         if self.local:
@@ -92,35 +125,23 @@ class FreeNovelTop100Spider(scrapy.Spider):
             yield item
 
     def get_html_with_selenium(self, url):
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--enable-unsafe-swiftshader")
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
-        chrome_options.add_argument(f"user-agent={user_agent}")
-
-        driver = None
         html = ""
         try:
-            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-            driver.implicitly_wait(15)
-            driver.set_page_load_timeout(25)
-            driver.get(url)
-            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            if not self.driver:
+                self.logger.error("Selenium driver未初始化")
+                return ""
+            self.driver.get(url)
+            self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
                 "source": """
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
                 });
                 """
             })
-            time.sleep(3)
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(1)
-            html = driver.page_source
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(0.5)
+            html = self.driver.page_source
         except Exception as e:
             self.logger.error(f"Selenium 获取页面失败: {e}")
-        finally:
-            if driver:
-                driver.quit()
         return html

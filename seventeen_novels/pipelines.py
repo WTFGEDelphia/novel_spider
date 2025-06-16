@@ -163,6 +163,8 @@ class AutoNovelsTop100Pipeline:
             self.cursor = None
 
     def process_item(self, item, spider):
+        if spider.name != "auto_novel_top100":
+            return
         # Top100榜单
         if isinstance(item, SeventeenNovelsItem):
             self.cursor.execute('''
