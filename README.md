@@ -51,6 +51,7 @@ novel_spider/
 ├── run_free_novel_top100.py   # 运行免费榜单爬虫的入口脚本
 ├── run_novel_chapter_list.py  # 运行章节列表爬虫的入口脚本
 ├── run_novel_all_chapters.py  # 运行章节内容爬虫的入口脚本
+├── run_export_to_epub.py      # 运行导出小说内容为epub电子书工具脚本
 ├── LICENSE
 └── README.md
 ```
@@ -160,12 +161,19 @@ python run_auto_novel_top100.py
 - 自动抓取榜单、章节列表、章节内容，全部存入 `output/novel_data.db`。
 - 支持参数 `--local`，如数据库已存在则跳过榜单采集，直接采集章节内容。
 
-### 5. 参数说明
+### 5. 导出小说为epub电子书
+
+```bash
+python run_export_to_epub.py
+```
+- 读取 `output/novel_data.db`，并将数据根据小说名保存为epub电子书。
+
+### 6. 参数说明
 
 - 各入口脚本会自动检测虚拟环境并激活，若未找到虚拟环境会报错。
 - 支持本地调试模式，可通过修改爬虫参数实现。
 
-### 6. 结果文件
+### 7. 结果文件
 
 - `free_novel_top100.csv`：包含小说榜单信息。
 - `novel_chapter_list/<小说名.csv>`：包含每本小说的所有章节信息。
