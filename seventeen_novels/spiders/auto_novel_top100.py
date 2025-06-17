@@ -179,13 +179,13 @@ class AutoNovelTop100Spider(scrapy.Spider):
             cursor = conn.cursor()
             cursor.execute('''
             SELECT count(*) FROM novel_chapter
-            WHERE novel_name = ? AND chapter_name = ? AND chapter_content IS NOT NULL
+            WHERE novel_name = ? AND chapter_name = ? AND chapter_content IS NOT NULL AND chapter_content <> ''
             ''',
             (item["NovelName"], item["ChapterName"]))
             count = cursor.fetchone()[0]
             conn.close()
             if count == 1:
-                self.logger.info(f"小说{item['NovelName']}章节内容已存在: {item['ChapterName']}")
+                self.logger.warning(f"小说{item['NovelName']}章节内容已存在: {item['ChapterName']}")
                 continue
             yield item
             # 进入下一步：抓取章节内容
@@ -194,6 +194,12 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 callback=self.parse_chapter_content,
                 meta=item
             )
+
+    def is_ad_line(self, line):
+        AD_FILTER_KEYWORDS = [
+            "本书首发来自", "第一时间看正版内容", "17K小说网", "作者寄语", "banner_content", "二维码", "17K客户端", "签到即送VIP", "免费读全站"
+        ]
+        return any(keyword in line for keyword in AD_FILTER_KEYWORDS)
 
     def parse_chapter_content(self, response):
         novel_name = response.meta.get('NovelName', '').strip()
@@ -214,10 +220,16 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 return
 
         selector = Selector(text=html_content)
-        content = selector.xpath('//div[contains(@class,"readAreaBox")]/div[contains(@class,"content")]/text()').getall()
-        if not content:
-            content = selector.xpath('//div[contains(@class,"readAreaBox")]//text()').getall()
-        content = [line.strip() for line in content if line.strip()]
+        # content = selector.xpath('//div[contains(@class,"readAreaBox")]/div[contains(@class,"content")]/text()').getall()
+        # if not content:
+        #     content = selector.xpath('//div[contains(@class,"readAreaBox")]//text()').getall()
+        # content = [line.strip() for line in content if line.strip()]
+        content_nodes = selector.xpath(
+               '//div[contains(@class,"readAreaBox")]/div[contains(@class,"content")]//text()'
+               '| //div[contains(@class,"readAreaBox")]//text()'
+           ).getall()
+        content = [line.strip() for line in content_nodes if line.strip()]
+        content = [line for line in content if not self.is_ad_line(line)]
 
         # 只 yield item，写入交由 pipeline
         item = NovelChapterItem()
