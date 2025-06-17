@@ -124,24 +124,29 @@ class FreeNovelTop100Spider(scrapy.Spider):
             item["RankingValues"] = tr.xpath("./td[8]/text()").get()
             yield item
 
-    def get_html_with_selenium(self, url):
-        html = ""
-        try:
-            if not self.driver:
-                self.logger.error("Selenium driver未初始化")
-                return ""
-            self.driver.get(url)
-            self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                "source": """
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-                """
-            })
-            time.sleep(1)
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(0.5)
-            html = self.driver.page_source
-        except Exception as e:
-            self.logger.error(f"Selenium 获取页面失败: {e}")
-        return html
+    def get_html_with_selenium(self, url, max_retry=3):
+        def get_html_with_selenium(self, url, max_retry=3):
+            html = ""
+            for attempt in range(1, max_retry + 1):
+                try:
+                    if not self.driver:
+                        self.logger.error("Selenium driver未初始化")
+                        return ""
+                    self.driver.get(url)
+                    self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                        "source": """
+                        Object.defineProperty(navigator, 'webdriver', {
+                            get: () => undefined
+                        });
+                        """
+                    })
+                    time.sleep(3)
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    time.sleep(1)
+                    html = self.driver.page_source
+                    return html
+                except Exception as e:
+                    self.logger.warning(f"Selenium 第{attempt}次抓取失败: {e}")
+                    time.sleep(2)
+            self.logger.error(f"Selenium 多次重试仍失败: {url}")
+            return html
