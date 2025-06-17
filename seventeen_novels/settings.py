@@ -80,6 +80,7 @@ ITEM_PIPELINES = {
     "seventeen_novels.pipelines.NovelChapterListPipeline": 200,
     "seventeen_novels.pipelines.NovelAllChaptersPipeline": 300,
     "seventeen_novels.pipelines.AutoNovelsTop100Pipeline": 400,
+    "seventeen_novels.pipelines.AutoNovelsTop100PostgrePipeline": 500,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -106,3 +107,14 @@ ITEM_PIPELINES = {
 # Set settings whose default value is deprecated to a future-proof value
 FEED_EXPORT_ENCODING = "utf-8"
 LOG_LEVEL = "INFO"
+
+# =========================
+# PostgreSQL 数据库配置（供 AutoNovelsTop100PostgrePipeline 使用）
+# =========================
+PG_HOST = "172.20.67.14"
+PG_PORT = 15432
+PG_USER = "postgres"
+PG_PASSWORD = "sailing2018"
+PG_DBNAME = "postgres"
+PG_MINCONN = 1
+PG_MAXCONN = 64

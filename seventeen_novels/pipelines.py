@@ -7,6 +7,8 @@ import sqlite3
 from .items import SeventeenNovelsItem, NovelChapterItem
 # useful for handling different item types with a single interface
 from scrapy.exporters import CsvItemExporter
+from scrapy.exceptions import NotConfigured
+from psycopg2 import pool
 
 class FreeNovelTop100Pipeline:
     def __init__(self):
@@ -155,6 +157,7 @@ class AutoNovelsTop100Pipeline:
         self.cursor.execute('''
             CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_name ON novel_chapter(novel_name, chapter_name)
         ''')
+        self.conn.commit()
 
     def close_spider(self, spider):
         if self.conn:
@@ -164,7 +167,7 @@ class AutoNovelsTop100Pipeline:
 
     def process_item(self, item, spider):
         if spider.name != "auto_novel_top100":
-            return
+            return item
         # Top100榜单
         if isinstance(item, SeventeenNovelsItem):
             self.cursor.execute('''
@@ -239,4 +242,237 @@ class AutoNovelsTop100Pipeline:
             self.conn.commit()
             return item
 
+        return item
+
+
+class AutoNovelsTop100PostgrePipeline:
+    def __init__(self, host, port, user, password, dbname, minconn, maxconn):
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.dbname = dbname
+        self.minconn = minconn
+        self.maxconn = maxconn
+        self.connection_pool = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        # 从 settings 中获取数据库配置
+        settings = crawler.settings
+        host = settings.get("PG_HOST")
+        port = settings.get("PG_PORT")
+        user = settings.get("PG_USER")
+        password = settings.get("PG_PASSWORD")
+        dbname = settings.get("PG_DBNAME")
+        minconn = settings.get("PG_MINCONN", 1)  # 最小连接数
+        maxconn = settings.get("PG_MAXCONN", 10)  # 最大连接数
+
+        # 检查是否配置了数据库信息
+        if not all([host, port, user, password, dbname]):
+            raise NotConfigured("PostgreSQL settings not configured")
+
+        return cls(host, port, user, password, dbname, minconn, maxconn)
+
+    def open_spider(self, spider):
+        if spider.name != "auto_novel_top100_postgre":
+            return
+        # 在爬虫开始时创建连接池
+        self.connection_pool = pool.SimpleConnectionPool(
+            self.minconn,
+            self.maxconn,
+            host=self.host,
+            port=self.port,
+            user=self.user,
+            password=self.password,
+            dbname=self.dbname
+        )
+        if not self.connection_pool:
+            raise Exception("Failed to create PostgreSQL connection pool")
+        # 从连接池中获取连接
+        conn = self.connection_pool.getconn()
+        if not conn:
+            spider.logger.error("Failed to get connection from pool")
+            return
+        try:
+            cursor = conn.cursor()
+            # Top100榜单表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS novels (
+                    id SERIAL PRIMARY KEY,
+                    ranking INTEGER,
+                    type TEXT,
+                    type_link TEXT,
+                    name TEXT UNIQUE,
+                    link TEXT,
+                    latest_chapter TEXT,
+                    latest_chapter_link TEXT,
+                    update_time TEXT,
+                    author TEXT,
+                    author_link TEXT,
+                    status TEXT,
+                    ranking_values TEXT
+                )
+            ''')
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_novels_name ON novels(name)
+            ''')
+            # 章节列表表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS novel_chapter (
+                    id SERIAL PRIMARY KEY,
+                    novel_name TEXT,
+                    volume_title TEXT,
+                    chapter_name TEXT,
+                    chapter_link TEXT,
+                    chapter_info TEXT,
+                    chapter_content TEXT,
+                    UNIQUE(novel_name, chapter_name)
+                )
+            ''')
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_name ON novel_chapter(novel_name, chapter_name)
+            ''')
+            conn.commit()
+        except Exception as e:
+            # 如果发生错误，回滚事务
+            conn.rollback()
+            spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
+        finally:
+            # 将连接返回到连接池
+            self.connection_pool.putconn(conn)
+
+    def close_spider(self, spider):
+        # 在爬虫结束时关闭连接池
+        if self.connection_pool:
+            self.connection_pool.closeall()
+
+    def process_item(self, item, spider):
+        if spider.name != "auto_novel_top100_postgre":
+            return item
+        if not self.connection_pool:
+            return item
+        if isinstance(item, SeventeenNovelsItem):
+            return self._process_novel_item(item, spider)
+        elif isinstance(item, NovelChapterItem) and item.get("ChapterContent"):
+            return self._process_chapter_content_item(item, spider)
+        elif isinstance(item, NovelChapterItem):
+            return self._process_chapter_list_item(item, spider)
+        return item
+
+    def _process_novel_item(self, item, spider):
+        conn = self.connection_pool.getconn()
+        if not conn:
+            spider.logger.error("Failed to get connection from pool")
+            return item
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO novels (
+                    ranking, type, type_link, name, link,
+                    latest_chapter, latest_chapter_link, update_time,
+                    author, author_link, status, ranking_values
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (name) DO UPDATE SET
+                    ranking=EXCLUDED.ranking,
+                    type=EXCLUDED.type,
+                    type_link=EXCLUDED.type_link,
+                    link=EXCLUDED.link,
+                    latest_chapter=EXCLUDED.latest_chapter,
+                    latest_chapter_link=EXCLUDED.latest_chapter_link,
+                    update_time=EXCLUDED.update_time,
+                    author=EXCLUDED.author,
+                    author_link=EXCLUDED.author_link,
+                    status=EXCLUDED.status,
+                    ranking_values=EXCLUDED.ranking_values
+            ''', (
+                item.get('NovelRanking'),
+                item.get('NovelType'),
+                item.get('NovelTypeLink'),
+                item.get('NovelName'),
+                item.get('NovelLink'),
+                item.get('NewlesetChapter'),
+                item.get('NewlesetChapterLink'),
+                item.get('NovelLastUpdateTime'),
+                item.get('Author'),
+                item.get('AuthorLink'),
+                item.get('NovelStatus'),
+                item.get('RankingValues')
+            ))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
+        finally:
+            self.connection_pool.putconn(conn)
+        return item
+
+    def _process_chapter_content_item(self, item, spider):
+        conn = self.connection_pool.getconn()
+        if not conn:
+            spider.logger.error("Failed to get connection from pool")
+            return item
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO novel_chapter (
+                    novel_name, volume_title, chapter_name,
+                    chapter_link, chapter_info, chapter_content
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (novel_name, chapter_name) DO UPDATE SET
+                    volume_title=EXCLUDED.volume_title,
+                    chapter_link=EXCLUDED.chapter_link,
+                    chapter_info=EXCLUDED.chapter_info,
+                    chapter_content=EXCLUDED.chapter_content
+            ''', (
+                item.get('NovelName'),
+                item.get('VolumeTitle'),
+                item.get('ChapterName'),
+                item.get('ChapterLink'),
+                item.get('ChapterInfo'),
+                item.get('ChapterContent'),
+            ))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
+        finally:
+            self.connection_pool.putconn(conn)
+        return item
+
+    def _process_chapter_list_item(self, item, spider):
+        conn = self.connection_pool.getconn()
+        if not conn:
+            spider.logger.error("Failed to get connection from pool")
+            return item
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO novel_chapter (
+                    novel_name, volume_title, chapter_name,
+                    chapter_link, chapter_info
+                ) VALUES (
+                    %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (novel_name, chapter_name) DO UPDATE SET
+                    volume_title=EXCLUDED.volume_title,
+                    chapter_link=EXCLUDED.chapter_link,
+                    chapter_info=EXCLUDED.chapter_info
+            ''', (
+                item.get('NovelName'),
+                item.get('VolumeTitle'),
+                item.get('ChapterName'),
+                item.get('ChapterLink'),
+                item.get('ChapterInfo'),
+            ))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
+        finally:
+            self.connection_pool.putconn(conn)
         return item

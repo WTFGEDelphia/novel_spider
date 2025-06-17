@@ -1,20 +1,19 @@
 import scrapy
 import os
-import sqlite3
 import time
 
 from scrapy.selector import Selector
 from ..items import SeventeenNovelsItem, NovelChapterItem
 
-# Selenium相关
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from scrapy import signals
+from psycopg2 import pool
 
-class AutoNovelTop100Spider(scrapy.Spider):
-    name = "auto_novel_top100"
+class AutoNovelTop100PostgreSpider(scrapy.Spider):
+    name = "auto_novel_top100_postgre"
     allowed_domains = ["17k.com", "www.17k.com"]
 
     def __init__(self, local=False, *args, **kwargs):
@@ -22,18 +21,28 @@ class AutoNovelTop100Spider(scrapy.Spider):
         self.local = local
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.output_dir = os.path.abspath(os.path.join(self.base_dir, "..", "..", "output"))
-        self.db_path = os.path.join(self.output_dir, "novel_data.db")
-        self.driver = None  # Selenium driver实例
+        self.pg_conn_params = None  # 由 from_crawler 注入
+        self.driver = None
+        self.pg_pool = None
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
         spider = super().from_crawler(crawler, *args, **kwargs)
+        settings = crawler.settings
+        spider.pg_conn_params = {
+            "host": settings.get("PG_HOST"),
+            "port": settings.get("PG_PORT"),
+            "user": settings.get("PG_USER"),
+            "password": settings.get("PG_PASSWORD"),
+            "database": settings.get("PG_DBNAME"),
+            "minconn": settings.get("PG_MINCONN"),
+            "maxconn": settings.get("PG_MAXCONN"),
+        }
         crawler.signals.connect(spider.open_spider, signal=signals.spider_opened)
         crawler.signals.connect(spider.close_spider, signal=signals.spider_closed)
         return spider
 
     def open_spider(self, spider):
-        # Spider启动时创建driver
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
@@ -50,21 +59,45 @@ class AutoNovelTop100Spider(scrapy.Spider):
             self.driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
         self.driver.implicitly_wait(15)
         self.driver.set_page_load_timeout(25)
+        self.pg_pool = pool.SimpleConnectionPool(
+            minconn=self.pg_conn_params["minconn"],
+            maxconn=self.pg_conn_params["maxconn"],
+            host=self.pg_conn_params["host"],
+            port=self.pg_conn_params["port"],
+            user=self.pg_conn_params["user"],
+            password=self.pg_conn_params["password"],
+            database=self.pg_conn_params["database"]
+        )
 
     def close_spider(self, spider):
-        # Spider关闭时关闭driver
         if self.driver:
             self.driver.quit()
             self.driver = None
+        if hasattr(self, "pg_pool") and self.pg_pool:
+            self.pg_pool.closeall()
 
     def start_requests(self):
-        # Step 1: 抓取Top100榜单
-        if not os.path.exists(self.db_path) or not self.local:
+        if not self.local or not self.pg_novels_exist():
             url = "https://www.17k.com/top/refactor/top100/06_vipclick/06_click_freeBook_top_100_pc.html"
             yield scrapy.Request(url, callback=self.parse_top100)
         else:
-            # 已有榜单，直接进入下一步
             yield from self.request_chapter_list()
+
+    def get_pg_conn(self):
+        return self.pg_pool.getconn()
+
+    def pg_novels_exist(self):
+        try:
+            conn = self.get_pg_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM novels")
+            count = cursor.fetchone()[0]
+            cursor.close()
+            conn.close()
+            return count > 0
+        except Exception as e:
+            self.logger.error(f"PostgreSQL novels表检测失败: {e}")
+            return False
 
     def parse_top100(self, response):
         anti_spider_keywords = [
@@ -81,6 +114,7 @@ class AutoNovelTop100Spider(scrapy.Spider):
             selector = Selector(text=html_content)
         else:
             selector = response
+        print("selector:", selector)
 
         table_content = selector.xpath(
             '//div[contains(@class, "BOX") and contains(@style, "block")]//table'
@@ -105,23 +139,23 @@ class AutoNovelTop100Spider(scrapy.Spider):
             item["RankingValues"] = tr.xpath("./td[8]/text()").get()
             items.append(item)
 
-        # 只 yield item，写入交由 pipeline
         for item in items:
             yield item
 
-        # 进入下一步
         yield from self.request_chapter_list()
 
     def request_chapter_list(self):
-        # Step 2: 直接从pipeline写入的sqlite读取榜单
-        if not os.path.exists(self.db_path):
-            self.logger.error(f"sqlite文件未找到: {self.db_path}")
+        try:
+            conn = self.get_pg_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT name, link FROM novels ORDER BY ranking")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            self.logger.error(f"PostgreSQL novels表读取失败: {e}")
             return
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name, link FROM novels order by ranking")
-        rows = cursor.fetchall()
-        conn.close()
+
         for novel_name, novel_link in rows:
             self.logger.info(f"抓取小说: {novel_name}, URL: {novel_link}")
             if not novel_link:
@@ -173,22 +207,25 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 item["ChapterInfo"] = chapter_info
                 chapter_items.append(item)
 
-        # 只 yield item，写入交由 pipeline
         for item in chapter_items:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-            SELECT count(*) FROM novel_chapter
-            WHERE novel_name = ? AND chapter_name = ? AND chapter_content IS NOT NULL AND chapter_content <> ''
-            ''',
-            (item["NovelName"], item["ChapterName"]))
-            count = cursor.fetchone()[0]
-            conn.close()
+            try:
+                conn = self.get_pg_conn()
+                cursor = conn.cursor()
+                cursor.execute('''
+                SELECT count(*) FROM novel_chapter
+                WHERE novel_name = %s AND chapter_name = %s AND chapter_content IS NOT NULL AND chapter_content <> ''
+                ''', (item["NovelName"], item["ChapterName"]))
+                count = cursor.fetchone()[0]
+                cursor.close()
+                conn.close()
+            except Exception as e:
+                self.logger.error(f"PostgreSQL novel_chapter表去重失败: {e}")
+                count = 0
+
             if count == 1:
                 self.logger.warning(f"小说{item['NovelName']}章节内容已存在: {item['ChapterName']}")
                 continue
             yield item
-            # 进入下一步：抓取章节内容
             yield scrapy.Request(
                 url=item["ChapterLink"],
                 callback=self.parse_chapter_content,
@@ -220,10 +257,6 @@ class AutoNovelTop100Spider(scrapy.Spider):
                 return
 
         selector = Selector(text=html_content)
-        # content = selector.xpath('//div[contains(@class,"readAreaBox")]/div[contains(@class,"content")]/text()').getall()
-        # if not content:
-        #     content = selector.xpath('//div[contains(@class,"readAreaBox")]//text()').getall()
-        # content = [line.strip() for line in content if line.strip()]
         content_nodes = selector.xpath(
                '//div[contains(@class,"readAreaBox")]/div[contains(@class,"content")]//text()'
                '| //div[contains(@class,"readAreaBox")]//text()'
@@ -231,7 +264,6 @@ class AutoNovelTop100Spider(scrapy.Spider):
         content = [line.strip() for line in content_nodes if line.strip()]
         content = [line for line in content if not self.is_ad_line(line)]
 
-        # 只 yield item，写入交由 pipeline
         item = NovelChapterItem()
         item["NovelName"] = novel_name
         item["VolumeTitle"] = response.meta.get("VolumeTitle", "")
@@ -256,13 +288,13 @@ class AutoNovelTop100Spider(scrapy.Spider):
                     });
                     """
                 })
-                time.sleep(1)
+                time.sleep(3)
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(0.5)
+                time.sleep(1)
                 html = self.driver.page_source
                 return html
             except Exception as e:
                 self.logger.warning(f"Selenium 第{attempt}次抓取失败: {e}")
-                time.sleep(0.5)
+                time.sleep(2)
         self.logger.error(f"Selenium 多次重试仍失败: {url}")
         return html
