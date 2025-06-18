@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from scrapy import signals
-from psycopg2 import pool
+import psycopg2
 
 class AutoNovelTop100PostgreSpider(scrapy.Spider):
     name = "auto_novel_top100_postgre"
@@ -23,7 +23,8 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
         self.output_dir = os.path.abspath(os.path.join(self.base_dir, "..", "..", "output"))
         self.pg_conn_params = None  # 由 from_crawler 注入
         self.driver = None
-        self.pg_pool = None
+        self.pg_conn = None
+        self.cursor = None
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -35,8 +36,6 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
             "user": settings.get("PG_USER"),
             "password": settings.get("PG_PASSWORD"),
             "database": settings.get("PG_DBNAME"),
-            "minconn": settings.get("PG_MINCONN"),
-            "maxconn": settings.get("PG_MAXCONN"),
         }
         crawler.signals.connect(spider.open_spider, signal=signals.spider_opened)
         crawler.signals.connect(spider.close_spider, signal=signals.spider_closed)
@@ -59,41 +58,38 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
             self.driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
         self.driver.implicitly_wait(15)
         self.driver.set_page_load_timeout(25)
-        self.pg_pool = pool.SimpleConnectionPool(
-            minconn=self.pg_conn_params["minconn"],
-            maxconn=self.pg_conn_params["maxconn"],
+        self.pg_conn_params = spider.pg_conn_params
+        self.pg_conn = psycopg2.connect(
             host=self.pg_conn_params["host"],
             port=self.pg_conn_params["port"],
             user=self.pg_conn_params["user"],
             password=self.pg_conn_params["password"],
-            database=self.pg_conn_params["database"]
-        )
+            dbname=self.pg_conn_params["database"])
+        self.cursor = self.pg_conn.cursor()
 
     def close_spider(self, spider):
         if self.driver:
             self.driver.quit()
             self.driver = None
-        if hasattr(self, "pg_pool") and self.pg_pool:
-            self.pg_pool.closeall()
+        if hasattr(self, "cursor") and self.cursor:
+            self.cursor.close()
+            self.cursor = None
+        if hasattr(self, "pg_conn") and self.pg_conn:
+            self.pg_conn.close()
+            self.pg_conn = None
 
     def start_requests(self):
         if not self.local or not self.pg_novels_exist():
             url = "https://www.17k.com/top/refactor/top100/06_vipclick/06_click_freeBook_top_100_pc.html"
             yield scrapy.Request(url, callback=self.parse_top100)
         else:
+            self.logger.info("PostgreSQL novels表已存在，跳过爬取")
             yield from self.request_chapter_list()
-
-    def get_pg_conn(self):
-        return self.pg_pool.getconn()
 
     def pg_novels_exist(self):
         try:
-            conn = self.get_pg_conn()
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM novels")
-            count = cursor.fetchone()[0]
-            cursor.close()
-            conn.close()
+            self.cursor.execute("SELECT COUNT(*) FROM novels")
+            count = self.cursor.fetchone()[0]
             return count > 0
         except Exception as e:
             self.logger.error(f"PostgreSQL novels表检测失败: {e}")
@@ -146,12 +142,8 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
 
     def request_chapter_list(self):
         try:
-            conn = self.get_pg_conn()
-            cursor = conn.cursor()
-            cursor.execute("SELECT name, link FROM novels ORDER BY ranking")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
+            self.cursor.execute("SELECT name, link FROM novels ORDER BY ranking")
+            rows = self.cursor.fetchall()
         except Exception as e:
             self.logger.error(f"PostgreSQL novels表读取失败: {e}")
             return
@@ -209,15 +201,11 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
 
         for item in chapter_items:
             try:
-                conn = self.get_pg_conn()
-                cursor = conn.cursor()
-                cursor.execute('''
+                self.cursor.execute('''
                 SELECT count(*) FROM novel_chapter
                 WHERE novel_name = %s AND chapter_name = %s AND chapter_content IS NOT NULL AND chapter_content <> ''
                 ''', (item["NovelName"], item["ChapterName"]))
-                count = cursor.fetchone()[0]
-                cursor.close()
-                conn.close()
+                count = self.cursor.fetchone()[0]
             except Exception as e:
                 self.logger.error(f"PostgreSQL novel_chapter表去重失败: {e}")
                 count = 0
@@ -288,9 +276,9 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
                     });
                     """
                 })
-                time.sleep(3)
-                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(1)
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(0.1)
                 html = self.driver.page_source
                 return html
             except Exception as e:
