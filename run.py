@@ -51,9 +51,9 @@ def main():
         choices=[
             "auto_novel_top100",
             "auto_novel_top100_postgre",
-            "free_novel_top100",
-            "novel_chapter_list",
-            "novel_all_chapters",
+            # "free_novel_top100",
+            # "novel_chapter_list",
+            # "novel_all_chapters",
         ],
     )
     crawl_parser.add_argument("--local", action="store_true", help="传递local=1参数")
