@@ -212,7 +212,7 @@ python run.py export epub
        ports:
          - "${PG_PORT}:5432"
        volumes:
-         - ./pgdata:/var/lib/postgresql/data
+         - ./output/pgdata:/var/lib/postgresql/data
 
      spider:
        build: .
@@ -220,8 +220,8 @@ python run.py export epub
        depends_on:
          - db
        environment:
-         PG_HOST: ${PG_HOST}
-         PG_PORT: ${PG_PORT}
+         PG_HOST: db
+         PG_PORT: 5432
          PG_USER: ${PG_USER}
          PG_PASSWORD: ${PG_PASSWORD}
          PG_DBNAME: ${PG_DBNAME}
@@ -251,7 +251,7 @@ python run.py export epub
    docker-compose down
    ```
 
-> PostgreSQL 数据会持久化在主机 pgdata目录。
+> PostgreSQL 数据会持久化在主机 ./output/pgdata目录。
 > 所有数据库连接参数通过环境变量自动传递，无需手动修改 settings.py。
 
 ---

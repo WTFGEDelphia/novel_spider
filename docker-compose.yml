@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: novel_pg
+    restart: always
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DBNAME}
+    ports:
+      - "${PG_PORT}:5432"
+    volumes:
+      - ./output/pgdata:/var/lib/postgresql/data
+
+  spider:
+    image: novel_spider:latest
+    # build: .
+    container_name: novel_spider
+    depends_on:
+      - db
+    environment:
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_DBNAME: ${PG_DBNAME}
+    volumes:
+      - ./output:/app/output
+    command: ["python", "run.py", "crawl", "auto_novel_top100_postgre", "--local"]

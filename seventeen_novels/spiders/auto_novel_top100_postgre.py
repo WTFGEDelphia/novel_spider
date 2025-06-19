@@ -52,8 +52,10 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
         chrome_options.add_argument("--enable-unsafe-swiftshader")
         user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
         chrome_options.add_argument(f"user-agent={user_agent}")
+        # chrome_options.binary_location = os.environ.get("CHROME_BIN", "/usr/bin/google-chrome")
 
-        chromedriver_path = r"C:\Users\wtf50\.wdm\drivers\chromedriver\win64\137.0.7151.70\chromedriver-win32\chromedriver.exe"
+        # 优先从环境变量读取chromedriver路径
+        chromedriver_path = os.environ.get("CHROMEDRIVER_PATH", r"/usr/local/bin/chromedriver")
         if not os.path.exists(chromedriver_path):
             self.logger.error(f"ChromeDriver not found at {chromedriver_path}")
             self.driver = webdriver.Chrome(

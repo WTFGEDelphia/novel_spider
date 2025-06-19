@@ -17,10 +17,10 @@ env_path = os.path.join(
 if os.path.exists(env_path):
     load_dotenv(env_path)
 
-PG_HOST = os.environ.get("PG_HOST", "172.20.67.14")
-PG_PORT = int(os.environ.get("PG_PORT", 15432))
+PG_HOST = os.environ.get("PG_HOST", "localhost")
+PG_PORT = int(os.environ.get("PG_PORT", 5432))
 PG_USER = os.environ.get("PG_USER", "postgres")
-PG_PASSWORD = os.environ.get("PG_PASSWORD", "sailing2018")
+PG_PASSWORD = os.environ.get("PG_PASSWORD", "novel_spider")
 PG_DBNAME = os.environ.get("PG_DBNAME", "postgres")
 PG_MINCONN = int(os.environ.get("PG_MINCONN", 1))
 PG_MAXCONN = int(os.environ.get("PG_MAXCONN", 4))
