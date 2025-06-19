@@ -4,4 +4,3 @@ webdriver_manager>=4.0.2
 parsel>=1.10.0
 ebooklib>=0.19
 psycopg2-binary>=2.9.10
-cn2an>=0.5.23

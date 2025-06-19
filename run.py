@@ -35,18 +35,10 @@ def run_spider(spider_name, local=False):
         print("爬虫运行失败。")
 
 
-def export_epub():
-    # 直接搬 run_export_to_epub_from_pg.py 的 main 逻辑
-    import run_export_to_epub_from_pg
-
-    run_export_to_epub_from_pg.main()
-
-
-def export_txt():
-    # 直接搬 run_export_to_ebooks.py 的 main 逻辑
+def export_ebooks(format):
     import run_export_to_ebooks
 
-    run_export_to_ebooks.main()
+    run_export_to_ebooks.main(format=format)
 
 
 def main():
@@ -67,17 +59,14 @@ def main():
     crawl_parser.add_argument("--local", action="store_true", help="传递local=1参数")
 
     export_parser = subparsers.add_parser("export", help="导出小说")
-    export_parser.add_argument("format", choices=["epub", "txt"])
+    export_parser.add_argument("format", choices=["epub", "txt"], help="导出格式")
 
     args = parser.parse_args()
 
     if args.command == "crawl":
         run_spider(args.spider, local=args.local)
     elif args.command == "export":
-        if args.format == "epub":
-            export_epub()
-        elif args.format == "txt":
-            export_txt()
+        export_ebooks(args.format)
     else:
         parser.print_help()
 
