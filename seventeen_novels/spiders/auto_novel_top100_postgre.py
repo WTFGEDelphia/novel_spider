@@ -93,7 +93,8 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
             url = "https://www.17k.com/top/refactor/top100/06_vipclick/06_click_freeBook_top_100_pc.html"
             yield scrapy.Request(url, callback=self.parse_top100)
         else:
-            yield from self.request_chapter_list()
+            self.logger.info("PostgreSQL novels表已存在，跳过爬取")
+            yield from self.request_chapter_list() # type: ignore
 
     def pg_novels_exist(self):
         exit_flag = False
@@ -122,7 +123,7 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
         )
         if is_anti_spider:
             self.logger.warning("检测到反爬虫页面，尝试用Selenium重新获取页面内容")
-            html_content = self.get_html_with_selenium(response.url)
+            html_content = self.get_html_with_selenium(response.url) # type: ignore
             if not html_content:
                 self.logger.error("Selenium 仍然未能绕过反爬虫，终止解析")
                 return
@@ -203,7 +204,7 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
             self.logger.warning(
                 f"检测到反爬虫页面，尝试用Selenium重新获取: {novel_name}"
             )
-            html_content = self.get_html_with_selenium(response.url)
+            html_content = self.get_html_with_selenium(response.url) # type: ignore
             if not html_content:
                 self.logger.error(f"Selenium 仍然未能绕过反爬虫，未保存: {novel_name}")
                 return
@@ -235,8 +236,8 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
             self.cursor.execute(  # type: ignore
                 """
                 SELECT chapter_name, 
-                       CASE WHEN chapter_content IS NOT NULL AND chapter_content != '' 
-                            THEN 1 ELSE 0 END as has_content
+                CASE WHEN chapter_content IS NOT NULL AND chapter_content != '' 
+                THEN 1 ELSE 0 END as has_content
                 FROM novel_chapter 
                 WHERE novel_name = %s
                 """,
