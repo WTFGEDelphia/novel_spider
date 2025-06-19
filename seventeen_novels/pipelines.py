@@ -5,10 +5,12 @@
 import os
 import sqlite3
 from .items import SeventeenNovelsItem, NovelChapterItem
+
 # useful for handling different item types with a single interface
 from scrapy.exporters import CsvItemExporter
 from scrapy.exceptions import NotConfigured
 from psycopg2 import pool
+
 
 class FreeNovelTop100Pipeline:
     def __init__(self):
@@ -19,7 +21,7 @@ class FreeNovelTop100Pipeline:
         if spider.name == "free_novel_top100":
             os.makedirs("output", exist_ok=True)
             self.Top100NovelsFile = open("output/free_novel_top100.csv", "wb")
-            self.Top100NovelsExporter = CsvItemExporter(self.Top100NovelsFile, encoding="utf8") # type: ignore
+            self.Top100NovelsExporter = CsvItemExporter(self.Top100NovelsFile, encoding="utf8")  # type: ignore
             self.Top100NovelsExporter.start_exporting()
         else:
             self.Top100NovelsFile = None
@@ -41,9 +43,9 @@ class FreeNovelTop100Pipeline:
 
 class NovelChapterListPipeline:
     def __init__(self):
-            self.exporters = {}
-            self.files = {}
-            self.dir = "output/novel_chapter_list"
+        self.exporters = {}
+        self.files = {}
+        self.dir = "output/novel_chapter_list"
 
     def open_spider(self, spider):
         if spider.name == "novel_chapter_list":
@@ -66,7 +68,7 @@ class NovelChapterListPipeline:
             file_path = f"{self.dir}/{safe_name}.csv"
             if novel_name not in self.exporters:
                 f = open(file_path, "wb")
-                exporter = CsvItemExporter(f, encoding="utf8")
+                exporter = CsvItemExporter(f, encoding="utf8")  # type: ignore
                 exporter.start_exporting()
                 self.exporters[novel_name] = exporter
                 self.files[novel_name] = f
@@ -101,7 +103,7 @@ class NovelAllChaptersPipeline:
             file_path = f"{self.output_dir}/{safe_name}.csv"
             if novel_name not in self.exporters:
                 f = open(file_path, "wb")
-                exporter = CsvItemExporter(f, encoding="utf8")
+                exporter = CsvItemExporter(f, encoding="utf8")  # type: ignore
                 exporter.start_exporting()
                 self.exporters[novel_name] = exporter
                 self.files[novel_name] = f
@@ -122,7 +124,8 @@ class AutoNovelsTop100Pipeline:
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
         # Top100榜单表
-        self.cursor.execute('''
+        self.cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS novels (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ranking INTEGER,
@@ -138,12 +141,16 @@ class AutoNovelsTop100Pipeline:
                 status TEXT,
                 ranking_values TEXT
             )
-        ''')
-        self.cursor.execute('''
+        """
+        )
+        self.cursor.execute(
+            """
             CREATE UNIQUE INDEX IF NOT EXISTS idx_novels_name ON novels(name)
-        ''')
+        """
+        )
         # 章节列表表
-        self.cursor.execute('''
+        self.cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS novel_chapter (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 novel_name TEXT,
@@ -153,10 +160,13 @@ class AutoNovelsTop100Pipeline:
                 chapter_info TEXT,
                 chapter_content TEXT
             )
-        ''')
-        self.cursor.execute('''
+        """
+        )
+        self.cursor.execute(
+            """
             CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_name ON novel_chapter(novel_name, chapter_name)
-        ''')
+        """
+        )
         self.conn.commit()
 
     def close_spider(self, spider):
@@ -170,7 +180,8 @@ class AutoNovelsTop100Pipeline:
             return item
         # Top100榜单
         if isinstance(item, SeventeenNovelsItem):
-            self.cursor.execute('''
+            self.cursor.execute(  # type: ignore
+                """
                 INSERT OR REPLACE INTO novels (
                     id, ranking, type, type_link, name, link,
                     latest_chapter, latest_chapter_link, update_time,
@@ -179,27 +190,30 @@ class AutoNovelsTop100Pipeline:
                     (SELECT id FROM novels WHERE name = ?),
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
-            ''', (
-                item.get('NovelName'),
-                item.get('NovelRanking'),
-                item.get('NovelType'),
-                item.get('NovelTypeLink'),
-                item.get('NovelName'),
-                item.get('NovelLink'),
-                item.get('NewlesetChapter'),
-                item.get('NewlesetChapterLink'),
-                item.get('NovelLastUpdateTime'),
-                item.get('Author'),
-                item.get('AuthorLink'),
-                item.get('NovelStatus'),
-                item.get('RankingValues')
-            ))
-            self.conn.commit()
+            """,
+                (
+                    item.get("NovelName"),
+                    item.get("NovelRanking"),
+                    item.get("NovelType"),
+                    item.get("NovelTypeLink"),
+                    item.get("NovelName"),
+                    item.get("NovelLink"),
+                    item.get("NewlesetChapter"),
+                    item.get("NewlesetChapterLink"),
+                    item.get("NovelLastUpdateTime"),
+                    item.get("Author"),
+                    item.get("AuthorLink"),
+                    item.get("NovelStatus"),
+                    item.get("RankingValues"),
+                ),
+            )
+            self.conn.commit()  # type: ignore
             return item
 
         # 章节内容
         if isinstance(item, NovelChapterItem) and item.get("ChapterContent"):
-            self.cursor.execute('''
+            self.cursor.execute(  # type: ignore
+                """
                 INSERT OR REPLACE INTO novel_chapter (
                     id, novel_name, volume_title, chapter_name,
                     chapter_link, chapter_info, chapter_content
@@ -207,22 +221,25 @@ class AutoNovelsTop100Pipeline:
                     (SELECT id FROM novel_chapter WHERE novel_name = ? AND chapter_name = ?),
                     ?, ?, ?, ?, ?, ?
                 )
-            ''', (
-                item.get('NovelName'),
-                item.get('ChapterName'),
-                item.get('NovelName'),
-                item.get('VolumeTitle'),
-                item.get('ChapterName'),
-                item.get('ChapterLink'),
-                item.get('ChapterInfo'),
-                item.get('ChapterContent'),
-            ))
-            self.conn.commit()
+            """,
+                (
+                    item.get("NovelName"),
+                    item.get("ChapterName"),
+                    item.get("NovelName"),
+                    item.get("VolumeTitle"),
+                    item.get("ChapterName"),
+                    item.get("ChapterLink"),
+                    item.get("ChapterInfo"),
+                    item.get("ChapterContent"),
+                ),
+            )
+            self.conn.commit()  # type: ignore
             return item
 
         # 章节列表（无正文）
         if isinstance(item, NovelChapterItem):
-            self.cursor.execute('''
+            self.cursor.execute(  # type: ignore
+                """
                 INSERT OR REPLACE INTO novel_chapter (
                     id, novel_name, volume_title, chapter_name,
                     chapter_link, chapter_info
@@ -230,16 +247,18 @@ class AutoNovelsTop100Pipeline:
                     (SELECT id FROM novel_chapter WHERE novel_name = ? AND chapter_name = ?),
                     ?, ?, ?, ?, ?
                 )
-            ''', (
-                item.get('NovelName'),
-                item.get('ChapterName'),
-                item.get('NovelName'),
-                item.get('VolumeTitle'),
-                item.get('ChapterName'),
-                item.get('ChapterLink'),
-                item.get('ChapterInfo'),
-            ))
-            self.conn.commit()
+            """,
+                (
+                    item.get("NovelName"),
+                    item.get("ChapterName"),
+                    item.get("NovelName"),
+                    item.get("VolumeTitle"),
+                    item.get("ChapterName"),
+                    item.get("ChapterLink"),
+                    item.get("ChapterInfo"),
+                ),
+            )
+            self.conn.commit()  # type: ignore
             return item
 
         return item
@@ -285,7 +304,7 @@ class AutoNovelsTop100PostgrePipeline:
             port=self.port,
             user=self.user,
             password=self.password,
-            dbname=self.dbname
+            dbname=self.dbname,
         )
         if not self.connection_pool:
             raise Exception("Failed to create PostgreSQL connection pool")
@@ -297,7 +316,8 @@ class AutoNovelsTop100PostgrePipeline:
         try:
             cursor = conn.cursor()
             # Top100榜单表
-            cursor.execute('''
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS novels (
                     id SERIAL PRIMARY KEY,
                     ranking INTEGER,
@@ -313,12 +333,16 @@ class AutoNovelsTop100PostgrePipeline:
                     status TEXT,
                     ranking_values TEXT
                 )
-            ''')
-            cursor.execute('''
+            """
+            )
+            cursor.execute(
+                """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_novels_name ON novels(name)
-            ''')
+            """
+            )
             # 章节列表表
-            cursor.execute('''
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS novel_chapter (
                     id SERIAL PRIMARY KEY,
                     novel_name TEXT,
@@ -329,10 +353,13 @@ class AutoNovelsTop100PostgrePipeline:
                     chapter_content TEXT,
                     UNIQUE(novel_name, chapter_name)
                 )
-            ''')
-            cursor.execute('''
+            """
+            )
+            cursor.execute(
+                """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_name ON novel_chapter(novel_name, chapter_name)
-            ''')
+            """
+            )
             conn.commit()
         except Exception as e:
             # 如果发生错误，回滚事务
@@ -361,13 +388,14 @@ class AutoNovelsTop100PostgrePipeline:
         return item
 
     def _process_novel_item(self, item, spider):
-        conn = self.connection_pool.getconn()
+        conn = self.connection_pool.getconn()  # type: ignore
         if not conn:
             spider.logger.error("Failed to get connection from pool")
             return item
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO novels (
                     ranking, type, type_link, name, link,
                     latest_chapter, latest_chapter_link, update_time,
@@ -387,36 +415,39 @@ class AutoNovelsTop100PostgrePipeline:
                     author_link=EXCLUDED.author_link,
                     status=EXCLUDED.status,
                     ranking_values=EXCLUDED.ranking_values
-            ''', (
-                item.get('NovelRanking'),
-                item.get('NovelType'),
-                item.get('NovelTypeLink'),
-                item.get('NovelName'),
-                item.get('NovelLink'),
-                item.get('NewlesetChapter'),
-                item.get('NewlesetChapterLink'),
-                item.get('NovelLastUpdateTime'),
-                item.get('Author'),
-                item.get('AuthorLink'),
-                item.get('NovelStatus'),
-                item.get('RankingValues')
-            ))
+            """,
+                (
+                    item.get("NovelRanking"),
+                    item.get("NovelType"),
+                    item.get("NovelTypeLink"),
+                    item.get("NovelName"),
+                    item.get("NovelLink"),
+                    item.get("NewlesetChapter"),
+                    item.get("NewlesetChapterLink"),
+                    item.get("NovelLastUpdateTime"),
+                    item.get("Author"),
+                    item.get("AuthorLink"),
+                    item.get("NovelStatus"),
+                    item.get("RankingValues"),
+                ),
+            )
             conn.commit()
         except Exception as e:
             conn.rollback()
             spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
         finally:
-            self.connection_pool.putconn(conn)
+            self.connection_pool.putconn(conn)  # type: ignore
         return item
 
     def _process_chapter_content_item(self, item, spider):
-        conn = self.connection_pool.getconn()
+        conn = self.connection_pool.getconn()  # type: ignore
         if not conn:
             spider.logger.error("Failed to get connection from pool")
             return item
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO novel_chapter (
                     novel_name, volume_title, chapter_name,
                     chapter_link, chapter_info, chapter_content
@@ -428,30 +459,33 @@ class AutoNovelsTop100PostgrePipeline:
                     chapter_link=EXCLUDED.chapter_link,
                     chapter_info=EXCLUDED.chapter_info,
                     chapter_content=EXCLUDED.chapter_content
-            ''', (
-                item.get('NovelName'),
-                item.get('VolumeTitle'),
-                item.get('ChapterName'),
-                item.get('ChapterLink'),
-                item.get('ChapterInfo'),
-                item.get('ChapterContent'),
-            ))
+            """,
+                (
+                    item.get("NovelName"),
+                    item.get("VolumeTitle"),
+                    item.get("ChapterName"),
+                    item.get("ChapterLink"),
+                    item.get("ChapterInfo"),
+                    item.get("ChapterContent"),
+                ),
+            )
             conn.commit()
         except Exception as e:
             conn.rollback()
             spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
         finally:
-            self.connection_pool.putconn(conn)
+            self.connection_pool.putconn(conn)  # type: ignore
         return item
 
     def _process_chapter_list_item(self, item, spider):
-        conn = self.connection_pool.getconn()
+        conn = self.connection_pool.getconn()  # type: ignore
         if not conn:
             spider.logger.error("Failed to get connection from pool")
             return item
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO novel_chapter (
                     novel_name, volume_title, chapter_name,
                     chapter_link, chapter_info
@@ -462,17 +496,19 @@ class AutoNovelsTop100PostgrePipeline:
                     volume_title=EXCLUDED.volume_title,
                     chapter_link=EXCLUDED.chapter_link,
                     chapter_info=EXCLUDED.chapter_info
-            ''', (
-                item.get('NovelName'),
-                item.get('VolumeTitle'),
-                item.get('ChapterName'),
-                item.get('ChapterLink'),
-                item.get('ChapterInfo'),
-            ))
+            """,
+                (
+                    item.get("NovelName"),
+                    item.get("VolumeTitle"),
+                    item.get("ChapterName"),
+                    item.get("ChapterLink"),
+                    item.get("ChapterInfo"),
+                ),
+            )
             conn.commit()
         except Exception as e:
             conn.rollback()
             spider.logger.error(f"Error inserting data into PostgreSQL: {e}")
         finally:
-            self.connection_pool.putconn(conn)
+            self.connection_pool.putconn(conn)  # type: ignore
         return item
