@@ -7,6 +7,24 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+import os
+from dotenv import load_dotenv
+
+# 自动加载 .env 文件（假设与 settings.py 同级或根目录）
+env_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
+)
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+
+PG_HOST = os.environ.get("PG_HOST", "172.20.67.14")
+PG_PORT = int(os.environ.get("PG_PORT", 15432))
+PG_USER = os.environ.get("PG_USER", "postgres")
+PG_PASSWORD = os.environ.get("PG_PASSWORD", "sailing2018")
+PG_DBNAME = os.environ.get("PG_DBNAME", "postgres")
+PG_MINCONN = int(os.environ.get("PG_MINCONN", 1))
+PG_MAXCONN = int(os.environ.get("PG_MAXCONN", 4))
+
 BOT_NAME = "seventeen_novels"
 
 SPIDER_MODULES = ["seventeen_novels.spiders"]
@@ -107,14 +125,3 @@ ITEM_PIPELINES = {
 # Set settings whose default value is deprecated to a future-proof value
 FEED_EXPORT_ENCODING = "utf-8"
 LOG_LEVEL = "INFO"
-
-# =========================
-# PostgreSQL 数据库配置（供 AutoNovelsTop100PostgrePipeline 使用）
-# =========================
-PG_HOST = "172.20.67.14"
-PG_PORT = 15432
-PG_USER = "postgres"
-PG_PASSWORD = "sailing2018"
-PG_DBNAME = "postgres"
-PG_MINCONN = 1
-PG_MAXCONN = 4

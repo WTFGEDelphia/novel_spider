@@ -126,6 +126,18 @@ novel_spider/
    - 本项目自动使用 `webdriver_manager` 管理 ChromeDriver，无需手动下载。
    - 需本地已安装 Chrome 浏览器。
 
+## 环境变量与数据库配置
+
+- 推荐将 `sample.env` 复制为 `.env`，并根据需要修改 PostgreSQL 数据库配置：
+
+  ```bash
+  cp sample.env .env
+  # 然后编辑 .env 文件，设置 PG_HOST、PG_PORT、PG_USER、PG_PASSWORD、PG_DBNAME 等
+  ```
+
+- `.env` 文件会被 `docker-compose` 自动加载，所有数据库连接参数会自动传递给容器，无需手动修改 settings.py。
+- 建议将 `.env` 加入 `.gitignore`，避免敏感信息泄露。
+
 ## 使用方法
 
 ### 1. 一键自动采集小说榜单与内容
@@ -153,6 +165,96 @@ python run.py export epub
 - **导出格式**：txt/epub 文件均包含小说名、作者、卷名、章节名、正文，章节顺序智能排序。
 - **数据库切换**：如存在 `seventeen_novels/settings.py` 且配置了 PG_HOST 等参数，自动使用 PostgreSQL，否则用 SQLite。
 - **其它入口脚本**：`run_free_novel_top100.py`、`run_novel_chapter_list.py`、`run_novel_all_chapters.py`、`run_export_to_epub.py` 等已被 `run.py` 整合，不再推荐单独使用。
+
+## Docker 一键部署与运行
+
+1. **构建镜像**
+
+   ```bash
+   docker build -t novel_spider:latest .
+   ```
+
+2. **运行采集/导出命令（output 目录会自动同步到主机）**
+
+   ```bash
+   # 采集小说榜单与内容
+   docker run --rm -v $(pwd)/output:/app/output novel_spider:latest crawl auto_novel_top100
+
+   # 导出 epub
+   docker run --rm -v $(pwd)/output:/app/output novel_spider:latest export epub
+
+   # 导出 txt
+   docker run --rm -v $(pwd)/output:/app/output novel_spider:latest export txt
+   ```
+
+> `-v $(pwd)/output:/app/output` 让容器内的 output 目录与主机同步，方便获取结果。
+
+如需自定义数据库、代理等参数，可通过环境变量或命令行参数传递。
+
+---
+
+## Docker Compose 一键部署
+
+1. **docker-compose.yml 示例**
+
+   ```yaml
+   version: '3.8'
+
+   services:
+     db:
+       image: postgres:15
+       container_name: novel_pg
+       restart: always
+       environment:
+         POSTGRES_USER: ${PG_USER}
+         POSTGRES_PASSWORD: ${PG_PASSWORD}
+         POSTGRES_DB: ${PG_DBNAME}
+       ports:
+         - "${PG_PORT}:5432"
+       volumes:
+         - ./pgdata:/var/lib/postgresql/data
+
+     spider:
+       build: .
+       container_name: novel_spider
+       depends_on:
+         - db
+       environment:
+         PG_HOST: ${PG_HOST}
+         PG_PORT: ${PG_PORT}
+         PG_USER: ${PG_USER}
+         PG_PASSWORD: ${PG_PASSWORD}
+         PG_DBNAME: ${PG_DBNAME}
+       volumes:
+         - ./output:/app/output
+       command: ["python", "run.py", "crawl", "auto_novel_top100_postgre"]
+       # 可修改 command 字段切换为 export txt/epub 等
+
+   ```
+
+2. **启动 PostgreSQL 和爬虫服务**
+
+   ```bash
+   docker-compose up --build
+   ```
+
+3. **运行导出命令（如导出 epub）**
+
+   ```bash
+   docker-compose run --rm spider python run.py export epub
+   docker-compose run --rm spider python run.py export txt
+   ```
+
+4. **停止并清理**
+
+   ```bash
+   docker-compose down
+   ```
+
+> PostgreSQL 数据会持久化在主机 pgdata目录。
+> 所有数据库连接参数通过环境变量自动传递，无需手动修改 settings.py。
+
+---
 
 ## 许可证
 
