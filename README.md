@@ -1,69 +1,66 @@
 novel_spider/README.md
 # novel_spider
 
-**novel_spider** 是一个基于 Python 的 17k 小说网爬虫项目，使用 Scrapy、Selenium 及 webdriver_manager 实现自动化抓取 17k 小说网的免费小说榜单、小说章节列表及章节内容，并将数据保存为 CSV 文件，便于后续分析和处理。
+**novel_spider** 是一个基于 Python 的 17k 小说网爬虫与电子书导出项目，支持一键采集、断点续爬、反爬虫自动切换、数据导出为 txt/epub，推荐使用统一入口脚本 `run.py`。
 
 ## 功能说明
 
 本项目主要包含以下功能：
 
-1. **抓取免费小说 TOP100 榜单**
-   - 通过 `free_novel_top100` 爬虫，自动抓取 17k 小说网免费榜单前 100 名小说的基本信息，包括排名、类别、名称、作者、最新章节、状态等，并保存为 `free_novel_top100.csv`。
+1. **一键自动采集小说榜单、章节、内容**
+   - 通过 `run.py` 脚本，支持如下命令：
+     - `python run.py crawl auto_novel_top100`
+     - `python run.py crawl auto_novel_top100_postgre`
+   - 自动抓取 17k 小说网 VIP 榜单前 100 名小说的基本信息、章节列表及所有章节内容，支持断点续爬、反爬虫自动切换 Selenium。
+   - 数据存入 `output/novel_data.db`（SQLite）或 PostgreSQL（自动检测 settings.py）。
 
-2. **抓取小说章节列表**
-   - 通过 `novel_chapter_list` 爬虫，读取榜单 CSV，批量抓取每本小说的所有卷及章节信息，包括卷名、章节名、章节链接等，保存为 `novel_chapter_list.csv`。
+2. **一键导出小说为 txt/epub**
+   - 通过 `run.py` 脚本，支持如下命令：
+     - `python run.py export txt`
+     - `python run.py export epub`
+   - 自动从数据库导出所有小说为 txt 或 epub 文件，支持章节号智能排序、中文数字识别、作者信息导出。
 
-3. **抓取小说所有章节内容**
-   - 通过 `novel_all_chapters` 爬虫，读取章节列表 CSV，批量抓取每个章节的正文内容，自动处理反爬虫机制（如遇到反爬页面自动切换 Selenium），并保存为 `novel_all_chapters.csv` 及本地 HTML 文件。
+3. **数据库自动适配**
+   - 自动检测 `seventeen_novels/settings.py`，优先用 PostgreSQL，否则用 SQLite。
+   - 数据表结构自动创建，支持 upsert。
 
-4. **自动化采集小说榜单与章节内容（支持SQLite存储）**
-   - 通过 `auto_novel_top100` 爬虫，自动抓取 17k 小说网 VIP 榜单前 100 名小说的基本信息、章节列表及所有章节内容，**全流程自动化**，并将所有数据存入 `output/novel_data.db` 的 SQLite 数据库。
-   - 支持断点续爬、反爬虫检测与自动切换 Selenium 绕过。
-   - 支持本地模式（local参数），如已存在数据库则跳过榜单抓取，直接采集章节。
+4. **章节号智能排序与中文数字识别**
+   - 导出时自动识别章节号，支持"第十二章""第100章"等混合排序。
+   - 支持中文数字转阿拉伯数字，章节顺序准确。
 
-5. **数据结构**
-   - 所有抓取的数据均以 CSV 格式输出，便于后续数据分析或导入数据库。
-   - 支持断点续爬、反爬虫检测与自动切换抓取方式。
+5. **环境与依赖自动管理**
+   - 自动检测并激活虚拟环境。
+   - ChromeDriver 自动管理，无需手动下载。
+
+6. **反爬虫自动切换与断点续爬**
+   - 遇到反爬页面自动切换 Selenium。
+   - 已采集章节自动跳过，支持大规模数据采集。
+
+7. **其它入口脚本说明**
+   - 其它 `run_xxx.py` 入口脚本已被 `run.py` 整合，不再推荐单独使用。
 
 ## 目录结构
 
 ```
 novel_spider/
-├── seventen_novels/           # Scrapy 爬虫主模块
-│   ├── items.py               # 定义数据结构
-│   ├── pipelines.py           # 数据处理与导出
-│   ├── settings.py            # Scrapy 配置
-│   └── spiders/               # 各爬虫脚本
-│       ├── free_novel_top100.py
-│       ├── novel_chapter_list.py
-│       └── novel_all_chapters.py
-├── output/                    # 所有数据输出目录（已自动 .gitignore）
-│   ├── free_novel_top100.csv              # 免费榜单数据
-│   ├── novel_chapter_list/                # 每本小说的章节列表csv
-│   │   ├── 小说A.csv
-│   │   ├── 小说B.csv
-│   │   └── ...
-│   ├── novel_all_chapters/                # 每本小说的章节正文csv
-│   │   ├── 小说A.csv
-│   │   ├── 小说B.csv
-│   │   └── ...
-│   ├── novel_data.db                      # 自动化流程采集的SQLite数据库
-├── run_free_novel_top100.py   # 运行免费榜单爬虫的入口脚本
-├── run_novel_chapter_list.py  # 运行章节列表爬虫的入口脚本
-├── run_novel_all_chapters.py  # 运行章节内容爬虫的入口脚本
-├── run_export_to_epub.py      # 运行导出小说内容为epub电子书工具脚本
-├── LICENSE
+├── seventeen_novels/           # Scrapy 爬虫主模块
+│   ├── items.py
+│   ├── pipelines.py
+│   ├── settings.py
+│   └── spiders/
+├── output/                     # 所有数据输出目录
+│   ├── novel_data.db           # 自动化采集的数据库
+│   ├── ebooks/                 # 导出的 txt/epub 文件
+├── run.py                      # 一键入口脚本（推荐）
+├── requirements.txt
 └── README.md
 ```
 
 ## 输入文件与输出目录说明
 
-- `output/free_novel_top100.csv`：免费小说榜单，作为章节列表爬虫的输入。
-- `output/novel_chapter_list/`：每本小说所有章节列表 csv，作为章节内容爬虫的输入。
-- `output/novel_all_chapters/`：每本小说所有章节正文 csv，最终输出结果。
 - `output/novel_data.db`：包含自动化采集的小说榜单、章节列表、章节内容等所有结构化数据，便于后续分析或二次开发。
-
-所有中间和最终数据均保存在 `output/` 目录下。该目录已加入 `.gitignore`，不会被提交到仓库。
+- `output/ebooks/`：导出的 txt/epub 文件，文件名为小说名。
+- 其它中间和最终数据均保存在 `output/` 目录下。该目录已加入 `.gitignore`，不会被提交到仓库。
 
 ## 安装与环境准备
 
@@ -78,7 +75,6 @@ novel_spider/
 
    - 推荐 Python 3.13.3 及以上版本。
    - 可从 [Python 官网](https://www.python.org/downloads/) 下载并安装适合你操作系统的版本。
-   - 各操作系统安装方法如下：
 
    **Windows：**
    1. 访问 [Python 官网下载页面](https://www.python.org/downloads/windows/)。
@@ -124,7 +120,7 @@ novel_spider/
      pip install -r requirements.txt
      ```
 
-   > 依赖主要包括：`scrapy`, `selenium`, `webdriver_manager`, `parsel` 等。
+   > 依赖主要包括：`scrapy`, `selenium`, `webdriver_manager`, `parsel`, `ebooklib` 等。
 
 4. **配置 Chrome 浏览器与驱动**
    - 本项目自动使用 `webdriver_manager` 管理 ChromeDriver，无需手动下载。
@@ -132,60 +128,31 @@ novel_spider/
 
 ## 使用方法
 
-### 1. 抓取免费小说 TOP100 榜单
+### 1. 一键自动采集小说榜单与内容
 
 ```bash
-python run_free_novel_top100.py
+python run.py crawl auto_novel_top100
+# 或
+python run.py crawl auto_novel_top100_postgre
 ```
-- 运行后会自动激活虚拟环境并执行爬虫，输出 `free_novel_top100.csv`。
-
-### 2. 抓取小说章节列表
-
-```bash
-python run_novel_chapter_list.py
-```
-- 依赖上一步生成的 `free_novel_top100.csv`，输出小说章节列表的csv文件到目录 `novel_chapter_list`。
-
-### 3. 抓取所有章节内容
-
-```bash
-python run_novel_all_chapters.py
-```
-- 依赖上一步生成的 `novel_chapter_list.csv`，输出小说章节和内容的csv文件到目录 `novel_all_chapters`。
-
-### 4. 一键自动采集并存入数据库
-
-```bash
-python run_auto_novel_top100.py
-```
-- 自动抓取榜单、章节列表、章节内容，全部存入 `output/novel_data.db`。
+- 自动抓取榜单、章节列表、章节内容，全部存入 `output/novel_data.db` 或 PostgreSQL。
 - 支持参数 `--local`，如数据库已存在则跳过榜单采集，直接采集章节内容。
 
-### 5. 导出小说为epub电子书
+### 2. 一键导出小说为 txt/epub
 
 ```bash
-python run_export_to_epub.py
+python run.py export txt
+python run.py export epub
 ```
-- 读取 `output/novel_data.db`，并将数据根据小说名保存为epub电子书。
+- 自动从数据库导出所有小说为 txt 或 epub 文件，支持章节号智能排序、中文数字识别、作者信息导出。
 
-### 6. 参数说明
+### 3. 其它说明
 
-- 各入口脚本会自动检测虚拟环境并激活，若未找到虚拟环境会报错。
-- 支持本地调试模式，可通过修改爬虫参数实现。
-
-### 7. 结果文件
-
-- `free_novel_top100.csv`：包含小说榜单信息。
-- `novel_chapter_list/<小说名.csv>`：包含每本小说的所有章节信息。
-- `novel_all_chapters/<小说名.csv>`：包含每本小说章节和内容。
-- `novel_all_chapters/<小说名>/<章节名.csv>` 各章节 HTML 文件：以小说名为目录，章节名为文件名保存。
-- `novel_data.db`：自动化全流程采集的所有结构化数据（榜单、章节、正文等）。
-
-## 注意事项
-
-- 抓取速度已做限流（`DOWNLOAD_DELAY=1`），如遇反爬虫可适当调整。
-- 若遇到反爬虫页面，程序会自动切换 Selenium 进行抓取。
-- 建议在稳定网络环境下运行，避免中断。
+- **反爬虫处理**：遇到反爬页面自动切换 Selenium。
+- **断点续爬**：已采集章节自动跳过，支持大规模数据采集。
+- **导出格式**：txt/epub 文件均包含小说名、作者、卷名、章节名、正文，章节顺序智能排序。
+- **数据库切换**：如存在 `seventeen_novels/settings.py` 且配置了 PG_HOST 等参数，自动使用 PostgreSQL，否则用 SQLite。
+- **其它入口脚本**：`run_free_novel_top100.py`、`run_novel_chapter_list.py`、`run_novel_all_chapters.py`、`run_export_to_epub.py` 等已被 `run.py` 整合，不再推荐单独使用。
 
 ## 许可证
 
