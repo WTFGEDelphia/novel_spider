@@ -219,6 +219,7 @@ python run.py export epub
        container_name: novel_spider
        depends_on:
          - db
+       shm_size: '1gb'
        environment:
          PG_HOST: db
          PG_PORT: 5432
