@@ -1,5 +1,6 @@
-novel_spider/README.md
 # novel_spider
+
+[English](README_EN.md) | 中文
 
 **novel_spider** 是一个基于 Python 的 17k 小说网爬虫与电子书导出项目，支持一键采集、断点续爬、反爬虫自动切换、数据导出为 txt/epub，推荐使用统一入口脚本 `run.py`。
 
