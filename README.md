@@ -170,7 +170,7 @@ pip install -r requirements.txt
    cp sample.env .env
    ```
 
-2. 将 `sample.env` 复制为 `.env`，并根据需要修改 PostgreSQL 数据库配置：
+2. 编辑 `.env` 文件，设置数据库连接参数：
    ```bash
    PG_HOST=localhost
    PG_PORT=5432
