@@ -220,6 +220,11 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
             )
             for chapter in volume.xpath("./dd/a"):
                 chapter_name = chapter.xpath(".//span/text()").get(default="").strip()
+                # span 的 class 为 ellipsis vip 时 跳过该章节
+                vip_chapter = chapter.xpath('.//span[@class="ellipsis vip"]')
+                if vip_chapter:
+                    self.logger.warning(f"跳过小说 {novel_name}: vip章节: {chapter_name}")
+                    continue
                 chapter_link = chapter.xpath("./@href").get(default="").strip()
                 if chapter_link.startswith("/"):
                     chapter_link = response.urljoin(chapter_link)
@@ -238,10 +243,10 @@ class AutoNovelTop100PostgreSpider(scrapy.Spider):
         try:
             self.cursor.execute(  # type: ignore
                 """
-                SELECT chapter_name, 
-                CASE WHEN chapter_content IS NOT NULL AND chapter_content != '' 
+                SELECT chapter_name,
+                CASE WHEN chapter_content IS NOT NULL AND chapter_content != ''
                 THEN 1 ELSE 0 END as has_content
-                FROM novel_chapter 
+                FROM novel_chapter
                 WHERE novel_name = %s
                 """,
                 (novel_name,),
