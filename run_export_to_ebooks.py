@@ -2,7 +2,6 @@ import os
 import re
 import sqlite3
 import importlib.util
-import sys
 import argparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -99,6 +98,11 @@ def clean_chapter_name(name):
 
 
 def extract_chapter_number(chapter_name):
+    # 先匹配阿拉伯数字
+    m = re.search(r"第\s*0*([0-9]+)\s*(?:章|回|节|卷|更)", chapter_name)
+    if m:
+        return int(m.group(1))
+    # 再匹配中文数字
     m = re.search(
         r"第\s*([一二三四五六七八九零十百千万亿〇两点]+)\s*(?:章|回|节|卷|更)",
         chapter_name,
